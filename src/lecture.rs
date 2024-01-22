@@ -51,7 +51,7 @@ fn update_main(main_path: &PathBuf, new_lessons: String) -> io::Result<()> {
     let main = fs::read(main_path)?;
     let pattern = Regex::new(r"% start lessons\n( {4}\\input\{les(\d+)\.tex\}\n)* {4}% end lessons")
         .unwrap();
-    let fmt_lessons = format!("% start lessons\n{}    %end lessons", new_lessons);
+    let fmt_lessons = format!("% start lessons\n{}    % end lessons", new_lessons);
     let main_string = String::from_utf8_lossy(&main);
     let new_main = pattern.replace(&main_string, fmt_lessons);
     fs::write(main_path, new_main.as_bytes())?;
