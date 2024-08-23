@@ -85,7 +85,6 @@ pub fn new_lesson(course: &Course, config: &Config) -> (PathBuf, String) {
         lessons_string.push_str(format!("    \\input{{les{num}.tex}}\n").as_str());
     }
 
-    println!("{lecture_directory:?}");
     update_main(&lecture_directory.join("main.tex"), lessons_string)
         .expect("Unable to update main.tex");
     return (lecture_directory, lesson_file);

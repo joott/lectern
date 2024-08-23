@@ -21,7 +21,6 @@ fn display_name(name: &String) -> String {
     let dept = caps.get(1).unwrap().as_str().to_uppercase();
     let number = caps.get(2).unwrap().as_str();
     let display_name = format!("{dept} {number}");
-    println!("{display_name}");
 
     return display_name;
 }
