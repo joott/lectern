@@ -6,10 +6,12 @@ use std::{
     fs,
 };
 use lecture::new_lesson;
+use homework::{new_homework, recent_homework, view_homeworks};
 use serde::{Deserialize, Serialize};
 use clap::{Parser, Subcommand, Args};
 
 mod lecture;
+mod homework;
 
 #[derive(Parser)]
 struct Cli {
@@ -54,7 +56,8 @@ struct OpenArgs {
 #[derive(Deserialize, Serialize)]
 struct Config {
     root: PathBuf,
-    template: PathBuf,
+    lecture_template: PathBuf,
+    homework_template: PathBuf,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -110,8 +113,9 @@ fn create_config(path: &PathBuf) -> Config {
     root = PathBuf::from(input.trim());
     resolve_home(&mut root);
 
-    let template = path.join("lecture_template.tex");
-    let config = Config { root, template };
+    let lecture_template = path.join("lecture_template.tex");
+    let homework_template = path.join("lecture_template.tex");
+    let config = Config { root, lecture_template, homework_template };
 
     let toml = toml::to_string(&config)
         .expect("Unable to convert config struct to toml string.");
@@ -208,6 +212,13 @@ fn launch_tex(directory: &PathBuf, file_name: &String) {
     xoppdog.kill().expect("Couldn't kill xoppdog.");
 }
 
+fn launch_pdf(directory: &PathBuf, file_name: &String) {
+    Command::new("zathura")
+        .arg(directory.join(file_name).as_os_str())
+        .spawn()
+        .expect("Failed to start zathura.");
+}
+
 fn init_command(args: InitArgs, config: &Config) -> Course {
     let course = Course {
         name: args.name,
@@ -216,8 +227,7 @@ fn init_command(args: InitArgs, config: &Config) -> Course {
         semester: args.semester
     };
 
-    let lecture_directory = config.root.join(&course.semester).join(&course.name)
-        .join("lecture");
+    let lecture_directory = config.root.join(&course.semester).join(&course.name);
     fs::create_dir_all(&lecture_directory)
         .expect("Failed creating course dir.");
 
@@ -230,15 +240,43 @@ fn open_command(args: OpenArgs, courses: &HashMap<String, Course>, config: &Conf
         None => pick_course(courses)?,
     };
 
-    let in_lecture = rofi_picker("Type", String::from("Lecture\nHomework"))? == 0;
-    let new_file = rofi_picker("Action", String::from("New\nEdit"))? == 0;
-    
-    let course_directory = config.root.join(&course.semester).join(&course.name).join("lecture");
-    let file_name = match (in_lecture, new_file) {
-        (true, true) => new_lesson(&course, &config),
-        (_, _) => String::from("main.tex"),
+    let in_lecture = rofi_picker("Type", String::from("Lecture\nHomework"))?;
+
+    let _ = match in_lecture {
+        0 => open_lecture(&course, &config),
+        _ => open_homework(&course, &config),
     };
-    
+
+    Ok(())
+}
+
+fn open_lecture(course: &Course, config: &Config) -> Result<(), &'static str>{
+    let action = rofi_picker("Action", String::from("New Lesson\nEdit Notes\nView"))?;
+
+    let course_directory = config.root.join(&course.semester).join(&course.name);
+    let (course_directory, file_name) = match action {
+        0 => new_lesson(&course, &config),
+        1 => (course_directory.join("lecture"), String::from("main.tex")),
+        _ => (course_directory.join("lecture"), String::from("main.pdf")),
+    };
+
+    match action {
+        2 => launch_pdf(&course_directory, &file_name),
+        _ => launch_tex(&course_directory, &file_name),
+    };
+
+    Ok(())
+}
+
+fn open_homework(course: &Course, config: &Config) -> Result<(), &'static str>{
+    let action = rofi_picker("Action", String::from("Edit Recent\nNew Homework\nView Previous"))?;
+
+    let (course_directory, file_name) = match action {
+        0 => recent_homework(&course, &config),
+        1 => new_homework(&course, &config),
+        _ => view_homeworks(&course, &config)?,
+    };
+
     launch_tex(&course_directory, &file_name);
 
     Ok(())
@@ -266,6 +304,5 @@ fn main() {
             save_courses(&courses, &config_path);
         },
         Commands::Open(args) => open_command(args, &courses, &config).unwrap(),
-
     };
 }

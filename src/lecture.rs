@@ -9,7 +9,7 @@ use regex::Regex;
 use crate::{Course, CourseContext, Config};
 
 fn init_lecture(course: &Course, config: &Config) {
-    let template_stream = fs::read(&config.template)
+    let template_stream = fs::read(&config.lecture_template)
         .expect("Couldn't open template.");
     let template_string = String::from_utf8_lossy(&template_stream);
 
@@ -59,7 +59,7 @@ fn update_main(main_path: &PathBuf, new_lessons: String) -> io::Result<()> {
     Ok(())
 }
 
-pub fn new_lesson(course: &Course, config: &Config) -> String {
+pub fn new_lesson(course: &Course, config: &Config) -> (PathBuf, String) {
     let lecture_directory = config.root.join(&course.semester).join(&course.name)
         .join("lecture");
 
@@ -85,7 +85,8 @@ pub fn new_lesson(course: &Course, config: &Config) -> String {
         lessons_string.push_str(format!("    \\input{{les{num}.tex}}\n").as_str());
     }
 
+    println!("{lecture_directory:?}");
     update_main(&lecture_directory.join("main.tex"), lessons_string)
         .expect("Unable to update main.tex");
-    return lesson_file;
+    return (lecture_directory, lesson_file);
 }
